@@ -95,9 +95,14 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AdvSolarPanel2.cs" />
+    <Compile Include="AdvSolarPanel.cs" />
     <Compile Include="AirLock.cs" />
+    <Compile Include="ejb.cs" />
+    <Compile Include="lcd.cs" />
     <Compile Include="OxygenFarm.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ShittyXYSolarPanelTower.cs" />
     <Compile Include="SolarPanel.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
