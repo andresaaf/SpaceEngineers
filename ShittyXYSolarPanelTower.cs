@@ -27,6 +27,11 @@ namespace SpaceEngineers.SolarPanelRegulator
         private IMyMotorStator _RotorX = null;
 
         /// <summary>
+        /// The rotor rotating around the Z axis
+        /// </summary>
+        private IMyMotorStator _RotorZ = null;
+
+        /// <summary>
         /// All solar panels connected to the rotors
         /// </summary>
         private List<IMySolarPanel> _SolarPanels = null;
@@ -48,6 +53,27 @@ namespace SpaceEngineers.SolarPanelRegulator
         /// </summary>
         private const float MIN_DEGREES = -MAX_DEGREES;
 
+        /// <summary>
+        /// The maximum value for a solar panel to output
+        /// </summary>
+        private const float TARGET_VALUE = 1.6f;
+
+        /// <summary>
+        /// The error between the set point and the target value
+        /// </summary>
+        private float _ERROR = 0f;
+
+        /// <summary>
+        /// The error from the previous iteration
+        /// </summary>
+        private float _LAST_ERROR = 0f;
+
+        private float _PROPORTIONAL = 2f;
+
+        private float _INTEGRAL = 2f;
+
+        private float _DERIVATIVE = 2f;
+
         #endregion
 
         #region Constructor
@@ -61,11 +87,14 @@ namespace SpaceEngineers.SolarPanelRegulator
 
             _RotorY = (IMyMotorStator)GridTerminalSystem.GetBlockWithName("RotorY");
             _RotorX = (IMyMotorStator)GridTerminalSystem.GetBlockWithName("RotorX");
+            _RotorZ = (IMyMotorStator)GridTerminalSystem.GetBlockWithName("RotorZ");
 
-            _RotorY.TargetVelocityRPM = 3;
-            _RotorX.TargetVelocityRPM = 3;
+            _RotorY.TargetVelocityRPM = .2f;
+            _RotorX.TargetVelocityRPM = .2f;
+            _RotorZ.TargetVelocityRPM = .2f;
             _RotorY.Torque = 1500000f;
             _RotorX.Torque = 1500000f;
+            _RotorZ.Torque = 1500000f;
 
             List<IMyTerminalBlock> tempList = new List<IMyTerminalBlock>();
             GridTerminalSystem.GetBlockGroupWithName("Solar Panels").GetBlocksOfType<IMySolarPanel>(tempList);
@@ -106,78 +135,42 @@ namespace SpaceEngineers.SolarPanelRegulator
                 "Last X angle:", (_LastXAngle * (180 / Math.PI)).ToString(), "\n",
                 "Current X angle:", (_RotorX.Angle * (180 / Math.PI)).ToString());
 
-            RotateY(averagePower);
-            RotateX(averagePower);
+            ShittyRegulation(_RotorX, averagePower);
+            ShittyRegulation(_RotorY, averagePower);
+            ShittyRegulation(_RotorZ, averagePower);
 
             _LastAverage = averagePower;
         }
 
-        /// <summary>
-        /// Rotates the solar panel tower around the Y axis
-        /// </summary>
-        /// <param name="averagePower">The current average power in kilowatts</param>
-        private void RotateY(float averagePower)
+        private void ShittyRegulation(IMyMotorStator regulator, float averagePower)
         {
-            if (_RotorY == null)
+            if (regulator == null)
             {
-                throw new ArgumentException("RotorY is null");
+                throw new ArgumentException("regulator is null");
             }
 
-            if (_LastAverage < averagePower)
+            float integral = 3f;
+            float deltaError = _ERROR - _LAST_ERROR;
+
+            _ERROR = TARGET_VALUE - averagePower;
+            integral = integral * _ERROR;
+
+            float controlVar = _PROPORTIONAL * _ERROR * _INTEGRAL * integral * _DERIVATIVE * deltaError;
+
+            if (controlVar > 1)
             {
-                if (_RotorY.TargetVelocityRPM < 1)
-                {
-                    _RotorY.TargetVelocityRPM = 0.1f;
-                }
+                regulator.TargetVelocityRPM = 3;
+            }
+            else if (controlVar < 1)
+            {
+                regulator.TargetVelocityRPM = -3;
             }
             else
             {
-                if (_RotorY.TargetVelocityRPM == 1)
-                {
-                    _RotorY.TargetVelocityRPM = 0f;
-                }
-
-                _RotorY.TargetVelocityRPM *= -1.02f;
-            }
-        }
-
-        /// <summary>
-        /// Rotates the solar panel tower around the X axis
-        /// </summary>
-        /// <param name="averagePower">The current average power in kilowatts</param>
-        private void RotateX(float averagePower)
-        {
-            if (_RotorX == null)
-            {
-                throw new ArgumentException("RotorX is null");
+                regulator.TargetVelocityRPM = 0;
             }
 
-            if (_RotorX.Angle > MAX_DEGREES && _RotorX.Angle < MIN_DEGREES)
-            {
-                _DebugLCD.WriteText("Rotor X Angle is above max degrees", true);
-                _DebugLCD.WriteText("\nRotor X Angle is below min degrees", true);
-
-                if (_RotorX.TargetVelocityRPM < 0)
-                {
-                    _RotorX.TargetVelocityRPM = -2f;
-                }
-                
-                _RotorX.UpperLimitRad = MAX_DEGREES;
-                _RotorX.LowerLimitRad = MIN_DEGREES;
-            }
-            else
-            {
-                if (_LastAverage < averagePower)
-                {
-                    _RotorX.TargetVelocityRPM = 3;
-                }
-                else
-                {
-                    _RotorX.TargetVelocityRPM *= -1f;
-                }
-            }
-
-            _LastXAngle = _RotorX.Angle;
+            _LAST_ERROR = _ERROR;
         }
 
         private void LogValues(params string[] messages)
