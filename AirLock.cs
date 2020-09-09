@@ -1,19 +1,132 @@
 ﻿using System;
-using SpaceEngineers.Game.ModAPI.Ingame;
+using System.Collections.Generic;
 using Sandbox.ModAPI.Ingame;
+using SpaceEngineers.Game.ModAPI;
+using VRage.Game.ModAPI.Ingame;
 
-namespace Scripting.AirLock
+namespace Scripting
 {
     public class Program : MyGridProgram
     {
-        #region Fields
+        private class AirLock
+        {
+            #region Properties
+
+            private int _InsideDoorTicks = DOOR_DELAY;
+            private int _OutsideDoorTicks = DOOR_DELAY;
+            private bool _DoorNeedsClosing = false;
+
+            IMyDoor _InsideDoor = null;
+            IMyDoor _OutsideDoor = null;
+            IMyAirVent _AirVent = null;
+
+            #endregion
+
+            #region Constructor
+
+            public AirLock(IMyBlockGroup airLockGroup)
+            {
+                if (airLockGroup == null)
+                {
+                    throw new ArgumentNullException("airLockGroup cannot be null");
+                }
+
+                _InsideDoor = ParseFromGroup<IMyDoor>(airLockGroup, "In");
+                _OutsideDoor = ParseFromGroup<IMyDoor>(airLockGroup, "Out");
+                _AirVent = ParseFromGroup<IMyAirVent>(airLockGroup, "Vent");
+            }
+
+            #endregion
+
+            #region Methods
+
+            private static T ParseFromGroup<T>(IMyBlockGroup airLockGroup, string postfix) where T : class, IMyCubeBlock
+            {
+                List<T> blocks = new List<T>();
+
+                airLockGroup.GetBlocksOfType(blocks, (T predicateParam) => predicateParam.DisplayNameText.ToLower().EndsWith(postfix.ToLower()));
+
+                if (blocks.Count != 1)
+                {
+                    throw new Exception(String.Format(
+                        "Ambiguity when parsing a block of type {0} with postfix \"{1}\"",
+                            typeof(T).Name,
+                            postfix));
+                }
+
+                return blocks[0];
+            }
+
+            public void ControlDoors()
+            {
+                if (_InsideDoorTicks != -1)
+                {
+                    --_InsideDoorTicks;
+                }
+
+                if (_OutsideDoorTicks != -1)
+                {
+                    --_OutsideDoorTicks;
+                }
+
+                if (_InsideDoorTicks == 0)
+                {
+                    _InsideDoor.CloseDoor();
+                    _InsideDoorTicks = -1;
+                    _DoorNeedsClosing = false;
+                }
+
+                if (_OutsideDoorTicks == 0)
+                {
+                    _OutsideDoor.CloseDoor();
+                    _OutsideDoorTicks = -1;
+                    _DoorNeedsClosing = false;
+                }
+
+                if (_InsideDoor.Status == DoorStatus.Closed &&
+                    _OutsideDoor.Status == DoorStatus.Closed &&
+                    _AirVent.GetOxygenLevel() == 0.0f)
+                {
+                    _InsideDoor.Enabled = true;
+                    _OutsideDoor.Enabled = true;
+                    _InsideDoorTicks = -1;
+                    _OutsideDoorTicks = -1;
+                    _DoorNeedsClosing = false;
+                }
+
+                if (_OutsideDoor.Status == DoorStatus.Open || _OutsideDoor.Status == DoorStatus.Opening)
+                {
+                    _InsideDoor.CloseDoor();
+                    _InsideDoor.Enabled = false;
+
+                    if (!_DoorNeedsClosing)
+                    {
+                        _OutsideDoorTicks = DOOR_DELAY;
+                        _DoorNeedsClosing = true;
+                    }
+                }
+
+                if (_InsideDoor.Status == DoorStatus.Open || _InsideDoor.Status == DoorStatus.Opening)
+                {
+                    _OutsideDoor.CloseDoor();
+                    _OutsideDoor.Enabled = false;
+
+                    if (!_DoorNeedsClosing)
+                    {
+                        _InsideDoorTicks = DOOR_DELAY;
+                        _DoorNeedsClosing = true;
+                    }
+                }
+            }
+
+            #endregion
+        }
+
+        #region Properties and Fields
 
         private const int DOOR_DELAY = 120;
-
-        private int _InsideDoorTicks = DOOR_DELAY;
-        private int _OutsideDoorTicks = DOOR_DELAY;
         private IMyTextSurface _PanelTextSurface = null;
-        private bool _DoorNeedsClosing = false;
+        private HashSet<AirLock> _AirLocks = new HashSet<AirLock>();
 
         #endregion
 
@@ -26,6 +139,14 @@ namespace Scripting.AirLock
             _PanelTextSurface.FontSize = 2;
             _PanelTextSurface.Alignment = VRage.Game.GUI.TextPanel.TextAlignment.CENTER;
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
+
+            List<IMyBlockGroup> airlockGroups = new List<IMyBlockGroup>();
+            GridTerminalSystem.GetBlockGroups(airlockGroups, (IMyBlockGroup blockGroup) => blockGroup.Name.ToLower().StartsWith("airlock"));
+
+            foreach (IMyBlockGroup blockGroup in airlockGroups)
+            {
+                _AirLocks.Add(new AirLock(blockGroup));
+            }
         }
 
         #endregion
@@ -34,85 +155,9 @@ namespace Scripting.AirLock
 
         public void Main(string argument, UpdateType updateSource)
         {
-            ControlDoors();
-        }
-
-        private void ControlDoors()
-        {
-            IMyAirtightSlideDoor insideDoor = GridTerminalSystem.GetBlockWithName("AirLock SlidingDoor In") as IMyAirtightSlideDoor;
-            IMyAirtightSlideDoor outsideDoor = GridTerminalSystem.GetBlockWithName("AirLock SlidingDoor Out") as IMyAirtightSlideDoor;
-            IMyAirVent airVent = GridTerminalSystem.GetBlockWithName("AirLock Vent") as IMyAirVent;
-
-            /*if (insideDoor == null || outsideDoor == null || airVent == null)
+            foreach (AirLock airLock in _AirLocks)
             {
-                return;
-            }*/
-
-            _PanelTextSurface.WriteText(String.Format(
-                "Inside door ticks: {0}\nOutside door ticks: {1}\nPressure: {2}",
-                _InsideDoorTicks,
-                _OutsideDoorTicks,
-                airVent.GetOxygenLevel()
-                ));
-
-
-
-            if (_InsideDoorTicks != -1)
-            {
-                --_InsideDoorTicks;
-            }
-
-            if (_OutsideDoorTicks != -1)
-            {
-                --_OutsideDoorTicks;
-            }
-
-            if (_InsideDoorTicks == 0)
-            {
-                insideDoor.CloseDoor();
-                _InsideDoorTicks = -1;
-                _DoorNeedsClosing = false;
-            }
-
-            if (_OutsideDoorTicks == 0)
-            {
-                outsideDoor.CloseDoor();
-                _OutsideDoorTicks = -1;
-                _DoorNeedsClosing = false;
-            }
-
-            if (insideDoor.Status == DoorStatus.Closed &&
-                outsideDoor.Status == DoorStatus.Closed &&
-                airVent.GetOxygenLevel() == 0.0f)
-            {
-                insideDoor.Enabled = true;
-                outsideDoor.Enabled = true;
-                _InsideDoorTicks = -1;
-                _OutsideDoorTicks = -1;
-                _DoorNeedsClosing = false;
-            }
-
-            if (outsideDoor.Status == DoorStatus.Open || outsideDoor.Status == DoorStatus.Opening)
-            {
-                insideDoor.CloseDoor();
-                insideDoor.Enabled = false;
-
-                if (!_DoorNeedsClosing)
-                {
-                    _OutsideDoorTicks = DOOR_DELAY;
-                    _DoorNeedsClosing = true;
-                }
-            }
-
-            if (insideDoor.Status == DoorStatus.Open || insideDoor.Status == DoorStatus.Opening)
-            {
-                outsideDoor.CloseDoor();
-                outsideDoor.Enabled = false;
-                if (!_DoorNeedsClosing)
-                {
-                    _InsideDoorTicks = DOOR_DELAY;
-                    _DoorNeedsClosing = true;
-                }
+                airLock.ControlDoors();
             }
         }
 
