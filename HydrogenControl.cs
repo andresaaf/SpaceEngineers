@@ -62,14 +62,14 @@ namespace Scripting.HydrogenControl
                 _Engines.ForEach(engine => engine.Enabled = true);
             }
 
-            Me.CustomData = _Engines.First().Enabled ? "Engines ON" : "Engines OFF";
+            Me.CustomData = _Engines.First().Enabled ? "ON" : "OFF";
 
             _PanelTextSurface.WriteText(String.Format(
                 "Stored: {0:0.00} MWh\nMax: {1:0.00} MWh\n{2} %\n{3}",
                 power_gen,
                 max_stored,
                 percentage,
-                Me.CustomData
+                "Engines " + Me.CustomData
                 ));
         }
 

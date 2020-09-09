@@ -3,6 +3,7 @@ using SpaceEngineers.Game.ModAPI.Ingame;
 using Sandbox.ModAPI.Ingame;
 using System.Collections.Generic;
 using VRage.Game.ModAPI.Ingame;
+using System.Linq;
 
 namespace Scripting.LCDStatus
 {
@@ -284,12 +285,27 @@ namespace Scripting.LCDStatus
                 ));
         }
 
+        private string GetRoomPressure()
+        {
+            Dictionary<char, IMyAirVent> airVents = new Dictionary<char, IMyAirVent>()
+            {
+                { 'H', GridTerminalSystem.GetBlockWithName("Air Vent Hall") as IMyAirVent },
+                { 'M', GridTerminalSystem.GetBlockWithName("Air Vent Medical") as IMyAirVent },
+                { 'R', GridTerminalSystem.GetBlockWithName("Air Vent Refinery") as IMyAirVent },
+                { 'T', GridTerminalSystem.GetBlockWithName("Air Vent Tank") as IMyAirVent },
+            };
+
+            return airVents.Aggregate("", (str, vent) => str + (vent.Value.GetOxygenLevel() > 0.6 ? vent.Key : char.ToLower(vent.Key)));
+        }
+
         private void UpdateControlStatus(IMyTextSurface surface)
         {
             var hydrogen_control = GridTerminalSystem.GetBlockWithName("Hydrogen Control Program") as IMyProgrammableBlock;
+
             surface.WriteText(String.Format(
-                "- Control Status\nHydrogen {0}",
-                hydrogen_control.CustomData
+                "- Control Status\nHydrogen Engines {0}\nAir: {1}",
+                hydrogen_control.CustomData,
+                GetRoomPressure()
                 ));
         }
 
