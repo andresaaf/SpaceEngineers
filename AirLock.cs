@@ -57,7 +57,7 @@ namespace Scripting
                 return blocks[0];
             }
 
-            public void ControlDoors()
+            public void ControlDoors(IMyProgrammableBlock owner)
             {
                 if (_InsideDoorTicks != -1)
                 {
@@ -83,9 +83,11 @@ namespace Scripting
                     _DoorNeedsClosing = false;
                 }
 
+                int storedOxygenPercentage = Int32.Parse(owner.CustomData);
+
                 if (_InsideDoor.Status == DoorStatus.Closed &&
                     _OutsideDoor.Status == DoorStatus.Closed &&
-                    _AirVent.GetOxygenLevel() == 0.0f)
+                    (storedOxygenPercentage > 95 || _AirVent.GetOxygenLevel() == 0.0f))
                 {
                     _InsideDoor.Enabled = true;
                     _OutsideDoor.Enabled = true;
@@ -155,9 +157,25 @@ namespace Scripting
 
         public void Main(string argument, UpdateType updateSource)
         {
+            List<IMyGasTank> oxygenTanks = new List<IMyGasTank>();
+            GridTerminalSystem.GetBlockGroupWithName("Oxygen Tanks").GetBlocksOfType(oxygenTanks);
+
+            float maxOxygen = 0f;
+            float storedOxygen = 0f;
+
+            foreach (IMyGasTank oxygenTank in oxygenTanks)
+            {
+                maxOxygen += oxygenTanks.Capacity;
+                storedOxygen += (float)oxygenTank.FilledRatio * oxygenTank.Capacity;
+            }
+
+            int oxygenPercentage = (int)(100 * storedOxygen / maxOxygen);
+
+            Me.CustomData = oxygenPercentage.ToString();
+
             foreach (AirLock airLock in _AirLocks)
             {
-                airLock.ControlDoors();
+                airLock.ControlDoors(Me);
             }
         }
 
