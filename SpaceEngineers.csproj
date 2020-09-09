@@ -98,8 +98,12 @@
     <Compile Include="AdvSolarPanel2.cs" />
     <Compile Include="AdvSolarPanel.cs" />
     <Compile Include="AirLock.cs" />
+    <Compile Include="AirLockAdv.cs" />
     <Compile Include="ejb.cs" />
+    <Compile Include="ejbhydro.cs" />
+    <Compile Include="HydrogenControl.cs" />
     <Compile Include="lcd.cs" />
+    <Compile Include="LCDStatus.cs" />
     <Compile Include="OxygenFarm.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ShittyXYSolarPanelTower.cs" />

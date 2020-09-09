@@ -43,10 +43,10 @@ namespace Scripting.AirLock
             IMyAirtightSlideDoor outsideDoor = GridTerminalSystem.GetBlockWithName("AirLock SlidingDoor Out") as IMyAirtightSlideDoor;
             IMyAirVent airVent = GridTerminalSystem.GetBlockWithName("AirLock Vent") as IMyAirVent;
 
-            if (insideDoor == null || outsideDoor == null || airVent == null)
+            /*if (insideDoor == null || outsideDoor == null || airVent == null)
             {
                 return;
-            }
+            }*/
 
             _PanelTextSurface.WriteText(String.Format(
                 "Inside door ticks: {0}\nOutside door ticks: {1}\nPressure: {2}",
