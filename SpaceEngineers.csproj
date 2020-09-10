@@ -132,6 +132,7 @@
     <Compile Include="AirLockAdv.cs" />
     <Compile Include="ejb.cs" />
     <Compile Include="ejbhydro.cs" />
+    <Compile Include="Functional\GenericFunctions.cs" />
     <Compile Include="HydrogenControl.cs" />
     <Compile Include="lcd.cs" />
     <Compile Include="LCDStatus.cs" />
